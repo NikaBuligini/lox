@@ -38,6 +38,11 @@ fn main() -> miette::Result<()> {
                                 unrecognized.token
                             );
                             std::process::exit(65);
+                        } else if let Some(unterminated) =
+                            e.downcast_ref::<StringTerminationError>()
+                        {
+                            any_cc_err = true;
+                            eprintln!("[line {}] Error: Unterminated string.", unterminated.line());
                         }
                         continue;
                     }
