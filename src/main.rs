@@ -20,9 +20,10 @@ enum Commands {
 
 fn main() -> miette::Result<()> {
     let args = Args::parse();
-    let mut any_cc_err = false;
     match args.command {
         Commands::Tokenize { filename } => {
+            let mut any_cc_err = false;
+
             let file_contents = fs::read_to_string(&filename)
                 .into_diagnostic()
                 .wrap_err_with(|| format!("reading '{}' failed", filename.display()))?;
@@ -39,19 +40,22 @@ fn main() -> miette::Result<()> {
                                 unrecognized.line(),
                                 unrecognized.token
                             );
-                            std::process::exit(65);
                         } else if let Some(unterminated) =
                             e.downcast_ref::<imp::lex::StringTerminationError>()
                         {
                             any_cc_err = true;
-                            eprintln!("[line {}] Error: Unterminated string.", unterminated.line());
+                            eprintln!("[line {}] Error: Unterminated string.", unterminated.line(),);
                         }
                         continue;
                     }
                 };
                 println!("{token}");
             }
-            println!("EOF null");
+            println!("EOF  null");
+
+            if any_cc_err {
+                std::process::exit(65);
+            }
         }
         Commands::Parse { filename } => {
             let file_contents = fs::read_to_string(&filename)
@@ -59,7 +63,14 @@ fn main() -> miette::Result<()> {
                 .wrap_err_with(|| format!("reading '{}' failed", filename.display()))?;
 
             let parser = imp::Parser::new(&file_contents);
-            println!("{}", parser.parse_expression().unwrap());
+            match parser.parse_expression() {
+                Ok(tt) => println!("{tt}"),
+                Err(e) => {
+                    // TODO: match error line format
+                    eprintln!("{e:?}");
+                    std::process::exit(65);
+                }
+            }
         }
         Commands::Run { filename } => {
             let file_contents = fs::read_to_string(&filename)
@@ -69,10 +80,6 @@ fn main() -> miette::Result<()> {
             let parser = imp::Parser::new(&file_contents);
             println!("{}", parser.parse().unwrap());
         }
-    }
-
-    if any_cc_err {
-        std::process::exit(65);
     }
 
     Ok(())
